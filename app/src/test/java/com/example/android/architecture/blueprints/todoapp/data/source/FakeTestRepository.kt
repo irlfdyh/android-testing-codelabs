@@ -2,6 +2,7 @@ package com.example.android.architecture.blueprints.todoapp.data.source
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.map
 import com.example.android.architecture.blueprints.todoapp.data.Result
 import com.example.android.architecture.blueprints.todoapp.data.Task
 import kotlinx.coroutines.runBlocking
@@ -12,6 +13,8 @@ class FakeTestRepository : TasksRepository {
     var tasksServiceData: LinkedHashMap<String, Task> = LinkedHashMap()
 
     private val observableTasks = MutableLiveData<Result<List<Task>>>()
+
+    private var shouldReturnError = false
 
     fun addTasks(vararg tasks: Task) {
         for (task in tasks) {
@@ -34,11 +37,22 @@ class FakeTestRepository : TasksRepository {
     }
 
     override suspend fun refreshTask(taskId: String) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        refreshTasks()
     }
 
     override fun observeTask(taskId: String): LiveData<Result<Task>> {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        runBlocking { refreshTasks() }
+        return observableTasks.map { tasks ->
+            when (tasks) {
+                is Result.Loading -> Result.Loading
+                is Result.Error -> Result.Error(tasks.exception)
+                is Result.Success -> {
+                    val task = tasks.data.firstOrNull() { it.id == taskId }
+                            ?: return@map Result.Error(Exception("Not Found"))
+                    Result.Success(task)
+                }
+            }
+        }
     }
 
     override suspend fun updateTaskFromRemoteDataSource(taskId: String) {
@@ -46,39 +60,52 @@ class FakeTestRepository : TasksRepository {
     }
 
     override suspend fun getTask(taskId: String, forceUpdate: Boolean): Result<Task> {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        if (shouldReturnError) {
+            return Result.Error(Exception("Test Exception"))
+        }
+        tasksServiceData[taskId]?.let {
+            return Result.Success(it)
+        }
+        return Result.Error(Exception("Could not find task"))
     }
 
     override suspend fun saveTask(task: Task) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        tasksServiceData[task.id] = task
     }
 
     override suspend fun completeTask(task: Task) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        val completedTask = Task(task.title, task.description, true, task.id)
+        tasksServiceData[task.id] = completedTask
     }
 
     override suspend fun completeTask(taskId: String) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        // Not required for the remote data source.
+        throw NotImplementedError()
     }
 
     override suspend fun activateTask(task: Task) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        val activeTask = Task(task.title, task.description, false, task.id)
+        tasksServiceData[task.id] = activeTask
     }
 
     override suspend fun activateTask(taskId: String) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        throw NotImplementedError()
     }
 
     override suspend fun clearCompletedTasks() {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-    }
-
-    override suspend fun deleteAllTasks() {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        tasksServiceData = tasksServiceData.filterValues {
+            !it.isCompleted
+        } as LinkedHashMap<String, Task>
     }
 
     override suspend fun deleteTask(taskId: String) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        tasksServiceData.remove(taskId)
+        refreshTasks()
+    }
+
+    override suspend fun deleteAllTasks() {
+        tasksServiceData.clear()
+        refreshTasks()
     }
 
 }
