@@ -23,7 +23,14 @@ class FakeTestRepository : TasksRepository {
         runBlocking { refreshTasks() }
     }
 
+    fun setReturnError(value: Boolean) {
+        shouldReturnError = value
+    }
+
     override suspend fun getTasks(forceUpdate: Boolean): Result<List<Task>> {
+        if (shouldReturnError) {
+            return Result.Error(Exception("Test Exception"))
+        }
         return Result.Success(tasksServiceData.values.toList())
     }
 
