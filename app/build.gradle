@@ -30,6 +30,7 @@ android {
     // including the AndroidManifest file.
     testOptions.unitTests {
         includeAndroidResources = true
+        returnDefaultValues = true
     }
 }
 
@@ -94,4 +95,6 @@ dependencies {
 
     implementation "androidx.fragment:fragment-testing:$fragmentVersion"
     implementation "androidx.test:core:$androidXTestCoreVersion"
+
+    implementation "androidx.test.espresso:espresso-idling-resource:$espressoVersion"
 }
